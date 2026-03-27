@@ -1,14 +1,14 @@
 {
   "name": "food-delivery-cors",
-  "version": "1.0.0",
-  "description": "",
+  "description": "A simple Express server to handle CORS for a food delivery application.",
   "main": "index.js",
   "type": "module",
   "scripts": {
     "start": "node index.js",
-    "dev": "nodemon index.js"
+    "dev": "nodemon index.js",
+    "format": "prettier --write ."
   },
-  "author": "",
+  "author": "Sharadindu Das",
   "license": "ISC",
   "dependencies": {
     "cors": "^2.8.5",
@@ -16,7 +16,7 @@
     "http-proxy-middleware": "^2.0.6"
   },
   "devDependencies": {
-    "esm": "^3.2.25",
-    "nodemon": "^3.1.0"
+    "nodemon": "^3.1.0",
+    "prettier": "^3.8.1"
   }
 }
