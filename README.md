@@ -1,18 +1,12 @@
-# ⚙️ API Gateway BFF 🚀
+# FoodFlow API Gateway
 
-A production-style **Backend-for-Frontend (BFF) API Gateway** built with Express.js to handle request routing, header transformation, and CORS-safe communication with external APIs.
-
----
-
-## 🧠 Overview
-
-This project implements a **BFF (Backend-for-Frontend)** layer acting as a **reverse proxy gateway**.
-
-Instead of calling external APIs directly (blocked by browsers), the frontend communicates with this gateway.
+A production-style **Backend-for-Frontend (BFF) API Gateway** built with Express.js — handles request proxying, header transformation, and CORS-safe communication with external APIs.
 
 ---
 
-## 🏗️ Architecture
+## Overview
+
+This gateway acts as a **reverse proxy** between the FoodFlow frontend and external food delivery APIs. Instead of calling external APIs directly (blocked by browser CORS policies), the frontend routes all requests through this layer.
 
 ```
 Client (React App)
@@ -24,126 +18,58 @@ External APIs (Swiggy)
 
 ---
 
-## ✨ Features
+## Features
 
-- 🔁 Reverse Proxy Gateway
-- 🌐 CORS Handling
-- 🕵️ Header Transformation
-- 🔀 Dynamic Routing (no need to define endpoints manually)
-- ⚡ BFF Pattern
-- 🧩 Multi-Endpoint Support
+- Reverse proxy with dynamic routing (no manual endpoint definitions)
+- CORS handling
+- Request header transformation to mimic browser traffic
+- Graceful upstream error handling
 
 ---
 
-## 📦 Tech Stack
+## Tech Stack
 
-- Node.js
-- Express.js
+- Node.js + Express.js
 - http-proxy-middleware
-- CORS
+- cors
 
 ---
 
-## ⚙️ Getting Started
-
-### 1️⃣ Clone Repository
+## Getting Started
 
 ```bash
-git clone https://github.com/sharadindudas/api-gateway-bff.git
-cd api-gateway-bff
+git clone https://github.com/sharadindudas/foodflow-api-gateway.git
+cd foodflow-api-gateway
+bun install
 ```
+
+**Development**
+
+```bash
+bun run dev
+```
+
+**Production**
+
+```bash
+bun start
+```
+
+Server runs at `http://localhost:3001`
 
 ---
 
-### 2️⃣ Install Dependencies
+## Proxy Endpoint
 
-```bash
-npm install
+All requests are routed through:
+
+```
+/api/proxy/swiggy/<any_swiggy_path>
 ```
 
----
+Examples:
 
-### 3️⃣ Run Server
-
-```bash
-npm start
 ```
-
-or (for development)
-
-```bash
-npm run dev
-```
-
----
-
-### 4️⃣ Server URL
-
-```bash
-http://localhost:3001
-```
-
----
-
-## 🔌 API Base Endpoint
-
-```bash
-http://localhost:3001/api/proxy/swiggy
-```
-
----
-
-# 📘 Usage Examples
-
-## 📍 1. Fetch Restaurants List
-
-### Frontend Example
-
-```js
-const fetchRestaurants = async () => {
-  const lat = 22.518;
-  const lng = 88.3832;
-
-  const res = await fetch(
-    `http://localhost:3001/api/proxy/swiggy/dapi/restaurants/list/v5?lat=${lat}&lng=${lng}&is-seo-homepage-enabled=true&page_type=DESKTOP_WEB_LISTING`
-  );
-
-  const data = await res.json();
-  console.log(data);
-};
-```
-
----
-
-## 🍽️ 2. Fetch Restaurant Menu
-
-```js
-const fetchMenu = async (resId) => {
-  const lat = 22.518;
-  const lng = 88.3832;
-
-  const res = await fetch(
-    `http://localhost:3001/api/proxy/swiggy/mapi/menu/pl?page-type=REGULAR_MENU&complete-menu=true&lat=${lat}&lng=${lng}&restaurantId=${resId}`
-  );
-
-  const data = await res.json();
-  console.log(data);
-};
-```
-
----
-
-## 🔄 3. Dynamic Routing
-
-You can call **any Swiggy API endpoint** through this gateway:
-
-```bash
-/api/proxy/swiggy/<ANY_PATH>
-```
-
-### Examples:
-
-```bash
 /api/proxy/swiggy/dapi/restaurants/list/v5
 /api/proxy/swiggy/mapi/menu/pl
 /api/proxy/swiggy/dapi/restaurants/search
@@ -151,7 +77,27 @@ You can call **any Swiggy API endpoint** through this gateway:
 
 ---
 
-## 🧪 4. cURL Testing
+## Usage
+
+### Fetch Restaurant Listings
+
+```js
+const res = await fetch(
+  `http://localhost:3001/api/proxy/swiggy/dapi/restaurants/list/v5?lat=22.518&lng=88.3832&is-seo-homepage-enabled=true&page_type=DESKTOP_WEB_LISTING`
+);
+const data = await res.json();
+```
+
+### Fetch Restaurant Menu
+
+```js
+const res = await fetch(
+  `http://localhost:3001/api/proxy/swiggy/mapi/menu/pl?page-type=REGULAR_MENU&complete-menu=true&lat=22.518&lng=88.3832&restaurantId=${resId}`
+);
+const data = await res.json();
+```
+
+### cURL
 
 ```bash
 curl "http://localhost:3001/api/proxy/swiggy/dapi/restaurants/list/v5?lat=22.518&lng=88.3832"
@@ -159,87 +105,75 @@ curl "http://localhost:3001/api/proxy/swiggy/dapi/restaurants/list/v5?lat=22.518
 
 ---
 
-## ⚙️ Frontend Environment Setup
+## How It Works
 
-Create a `.env` file in your frontend project:
+1. Frontend sends request to the BFF
+2. Express intercepts and rewrites the path
+3. Headers are modified to mimic a real browser request
+4. Request is forwarded to the upstream API
+5. Response is returned to the frontend with CORS headers set
+
+```js
+createProxyMiddleware({
+  target: "https://www.swiggy.com",
+  changeOrigin: true,
+  pathRewrite: { "^/api/proxy/swiggy": "" },
+  onProxyReq: (proxyReq) => {
+    proxyReq.setHeader("User-Agent", "Mozilla/5.0");
+    proxyReq.setHeader("Referer", "https://www.swiggy.com/");
+    proxyReq.setHeader("Origin", "https://www.swiggy.com");
+  },
+  onProxyRes: (proxyRes) => {
+    proxyRes.headers["access-control-allow-origin"] = "*";
+  },
+  onError: (err, req, res) => {
+    console.error("Proxy error:", err.message);
+    res.status(502).json({ error: "Upstream request failed" });
+  },
+});
+```
+
+---
+
+## Frontend Setup
+
+In your FoodFlow `.env`:
 
 ```env
+# Local
 VITE_BASE_URL=http://localhost:3001/
+
+# Production
+VITE_BASE_URL=https://your-deployed-gateway.railway.app/
 ```
 
 ---
 
-## 🛡️ Why Use This BFF?
-
-### ❌ Direct API Call (Fails)
+## Why Not Call the API Directly?
 
 ```js
-fetch("https://www.swiggy.com/dapi/restaurants/list/v5");
 // Blocked by CORS
-```
+fetch("https://www.swiggy.com/dapi/restaurants/list/v5");
 
-### ✅ Using BFF (Works)
-
-```js
+// Works via BFF
 fetch("http://localhost:3001/api/proxy/swiggy/dapi/restaurants/list/v5");
-// Success
 ```
 
 ---
 
-## 🔧 How It Works
+## Planned Improvements
 
-1. Frontend sends request to BFF
-2. Express intercepts request
-3. Path is rewritten
-4. Headers are modified
-5. Request forwarded to Swiggy
-6. Response returned with CORS headers
+- Rate limiting
+- Request logging (Morgan/Winston)
+- Response caching (Redis)
+- Multi-API support
 
 ---
 
-## 📂 Example Proxy Config
+## Author
 
-```js
-app.use(
-  "/api/proxy/swiggy",
-  createProxyMiddleware({
-    target: "https://www.swiggy.com",
-    changeOrigin: true,
-    pathRewrite: {
-      "^/api/proxy/swiggy": ""
-    },
-    onProxyReq: (proxyReq) => {
-      proxyReq.setHeader("User-Agent", "Mozilla/5.0");
-      proxyReq.setHeader("Referer", "https://www.swiggy.com/");
-      proxyReq.setHeader("Origin", "https://www.swiggy.com");
-    }
-  })
-);
-```
+**Sharadindu Das** — [GitHub](https://github.com/sharadindudas) · [sharadindudas774@gmail.com](mailto:sharadindudas774@gmail.com)
 
 ---
 
-## 💡 Real-World Use Cases
-
-- API Gateway Architecture
-- Backend-for-Frontend (BFF)
-- Microservices Routing
-- Third-party API Integration
-- CORS-safe communication
-
----
-
-## 🚀 Future Improvements
-
-- 🔥 Rate Limiting
-- 🔥 Caching (Redis)
-- 🔥 Request Logging (Morgan/Winston)
-- 🔥 Authentication Layer (JWT)
-- 🔥 Multi-API Gateway Support
-
----
-
-## 🧑‍💻 Author
-
-**Sharadindu Das**
+*Part of the [FoodFlow](https://github.com/sharadindudas/foodflow) project.*
